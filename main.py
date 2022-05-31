@@ -1,12 +1,19 @@
-def web_page():
+from machine import Timer
+import time
+temp_c, temp_f, pressu = 0,0,0
+def read_weather():
     bme = BME280.BME280(i2c=i2c)
-  
+    global temp_c; global temp_f; global pressu
+    global x; global y
     temp_c = bme.read_temperature()/100.0 - 1.0
     temp_f = str(round((bme.read_temperature()/100.0 - 1.0) * (9/5) + 32, 2))
     pressu = str(bme.pressure)
     x.append(temp_c)
     y.append("")
-    temp_c = str(temp_c)
+    print("updated weather")
+    
+def web_page():
+    temp_c_s = str(temp_c)
     
     s = 0
     for i in x:
@@ -30,7 +37,7 @@ def web_page():
 
     <table>
     <tr><th>POMIAR</th><th>WARTOSC</th></tr>
-    <tr><td>Temperatura w Celsiuszach</td><td><span class="sensor"> """ + temp_c + """ C</span></td></tr>
+    <tr><td>Temperatura w Celsiuszach</td><td><span class="sensor"> """ + temp_c_s + """ C</span></td></tr>
     <tr><td>Temperatura w Fahrenheitach</td><td><span class="sensor"> """ + temp_f + """ F</span></td></tr>
     <tr><td>Cisnienie</td><td><span class="sensor"> """ + pressu + """</span></td></tr>
     <tr><td>Srednia temperatura</td><td><span class="sensor"> """ + s + """ C</span></td></tr>
@@ -66,12 +73,17 @@ y = []
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('', 80))
 s.listen(5)
-
+print("init")
+timer = Timer(-1)
+read_weather()
 while True:
   try:
+    timer.init(period=10000, mode=Timer.PERIODIC, callback=lambda _:read_weather())
     if gc.mem_free() < 102000:
       gc.collect()
+    print("waiting for request")
     conn, addr = s.accept()
+    timer.deinit()
     conn.settimeout(3.0)
     print('Got a connection from %s' % str(addr))
     request = conn.recv(1024)
@@ -87,4 +99,3 @@ while True:
   except OSError as e:
     conn.close()
     print('Connection closed')
-
